@@ -1,5 +1,6 @@
-# rtcnet
+[![Go Reference](https://pkg.go.dev/badge/github.com/unitoftime/rtcnet.svg)](https://pkg.go.dev/github.com/unitoftime/rtcnet)
 
+# WebRTC Networking
 This is my attempt at building and easy to use, client-server webrtc-based net.Conn implementation. Feel free to use it and file bug reports. I am by no means a webrtc expert, so if you see any problems with my implementation, then feel free to open an issue! Happy to answer any questions as needed!
 
 ## Notes
@@ -16,6 +17,13 @@ I've tested this on:
  - [x] Replace logger with injectable logger interface
  - [ ] Ability for user to select the level of reliability/orderdness that they want on the data channel
  - [ ] Close websocket after webrtc negotiation has completed (currently ws stays open until net.Conn is closed)
+
+# Usage
+```
+    import "github.com/unitoftime/rtcnet"
+```
+
+See [Example](https://github.com/unitoftime/rtcnet/tree/master/example)
 
 # Used By
 1. I'm currently using this for an online game I'm building for browser. [You can find it here](www.unit.dev/mmo)
