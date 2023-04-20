@@ -55,7 +55,7 @@ func NewListener(address string, config ListenConfig) (*Listener, error) {
 	return rtcListener, nil
 }
 
-func (l *Listener) Accept() (*Conn, error) {
+func (l *Listener) Accept() (net.Conn, error) {
 	select{
 	case conn := <-l.pendingAccepts:
 		return conn, nil

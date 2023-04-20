@@ -20,13 +20,13 @@ I've tested this on:
 
 # Usage
 ```
-    import "github.com/unitoftime/rtcnet"
+import "github.com/unitoftime/rtcnet"
 ```
 
 See [Example](https://github.com/unitoftime/rtcnet/tree/master/example)
 
 # Used By
-1. I'm currently using this for an online game I'm building for browser. [You can find it here](www.unit.dev/mmo)
+1. I'm currently using this for an online game I'm building for browser. [You can find it here](https://www.unit.dev/mmo)
 
 # License
 1. MIT
