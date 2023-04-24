@@ -145,7 +145,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 		// Register channel opening handling
 		d.OnOpen(func() {
 			printDataChannel(d)
-
+			wsConn.Close()
 			l.pendingAccepts <- conn
 		})
 

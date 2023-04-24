@@ -15,6 +15,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer wSock.Close()
 
 	// Offer WebRtc Upgrade
 	var candidatesMux sync.Mutex
