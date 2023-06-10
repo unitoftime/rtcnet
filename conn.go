@@ -27,10 +27,16 @@ func newConn(peer *webrtc.PeerConnection, websocket net.Conn) *Conn {
 
 func (c *Conn) Read(b []byte) (int, error) {
 	select {
-	case err := <-c.errorChan:
+	case err, ok := <-c.errorChan:
+		if !ok {
+			return 0, net.ErrClosed
+		}
 		return 0, err // There was some error
 
-		case dat := <- c.readChan:
+		case dat, ok := <- c.readChan:
+		if !ok {
+			return 0, net.ErrClosed
+		}
 		if len(dat) > len(b) {
 			return 0, fmt.Errorf("message too big") // TODO - Instead of failing, should we just return partial?
 		}
