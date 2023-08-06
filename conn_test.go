@@ -126,10 +126,15 @@ func TestConn(t *testing.T) {
 				compare(t, buf[i], dat[i])
 			}
 
+			fmt.Printf(".")
 			successCount++
 		}
 
-	fmt.Println("Success: ", successCount)
+		fmt.Println("Success: ", successCount)
+		err = conn.Close()
+		if err != nil {
+			fmt.Errorf("%v", err)
+		}
 	}
 
 	fmt.Println("Done")

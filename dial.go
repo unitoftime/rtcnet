@@ -31,7 +31,9 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 
 	trace("Dial: Starting WebRTC negotiation")
 
-	peerConnection, err := webrtc.NewPeerConnection(config)
+	api := getSettingsEngineApi()
+
+	peerConnection, err := api.NewPeerConnection(config)
 	if err != nil {
 		logErr("Dial: NewPeerConnection", err)
 		return nil, err
@@ -170,19 +172,26 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 	dataChannel.OnOpen(func() {
 		printDataChannel(dataChannel)
 		trace("Dial: Data Channel OnOpen")
-		conn.dataChannel = dataChannel
-		connFinish <- true
+
+		conn.raw, err = dataChannel.Detach()
+		if err != nil {
+			conn.pushErrorData(err)
+		} else {
+			conn.dataChannel = dataChannel
+			connFinish <- true
+		}
 	})
 
-	// Register text message handling
-	dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		// log.Print("Client: Received Msg from DataChannel", len(msg.Data))
-		if msg.IsString {
-			trace("Dial: DataChannel OnMessage: Received string message, skipping")
-			return
-		}
-		conn.pushReadData(msg.Data)
-	})
+	// Note: Stopped using this now that I have detached data channels
+	// // Register text message handling
+	// dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+	// 	// log.Print("Client: Received Msg from DataChannel", len(msg.Data))
+	// 	if msg.IsString {
+	// 		trace("Dial: DataChannel OnMessage: Received string message, skipping")
+	// 		return
+	// 	}
+	// 	conn.pushReadData(msg.Data)
+	// })
 
 	// Create an offer to send to the other process
 	offer, err := peerConnection.CreateOffer(nil)

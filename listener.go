@@ -78,6 +78,8 @@ func (l *Listener) Addr() net.Addr {
 func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	defer trace("finished attemptWebRtcNegotiation")
 
+	api := getSettingsEngineApi()
+
 	var candidatesMux sync.Mutex
 	pendingCandidates := make([]*webrtc.ICECandidate, 0)
 	config := webrtc.Configuration{
@@ -88,7 +90,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 		},
 	}
 
-	peerConnection, err := webrtc.NewPeerConnection(config)
+	peerConnection, err := api.NewPeerConnection(config)
 	if err != nil {
 		l.pendingAcceptErrors <- err
 		return
@@ -149,7 +151,13 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 		d.OnOpen(func() {
 			printDataChannel(d)
 			wsConn.Close()
-			l.pendingAccepts <- conn
+
+			conn.raw, err = d.Detach()
+			if err != nil {
+				l.pendingAcceptErrors <- err
+			} else {
+				l.pendingAccepts <- conn
+			}
 		})
 
 		// // Register channel opening handling
@@ -157,15 +165,16 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 		// 	trace("Listener: Data channel was closed!")
 		// })
 
-		// Register text message handling
-		d.OnMessage(func(msg webrtc.DataChannelMessage) {
-			// log.Print("Server: Received Msg from DataChannel", len(msg.Data))
-			if msg.IsString {
-				trace("Listener: DataChannel OnMessage: Received string message, skipping")
-				return
-			}
-			conn.pushReadData(msg.Data)
-		})
+		// Note: Stopped using this now that I have detached data channels
+		// // Register text message handling
+		// d.OnMessage(func(msg webrtc.DataChannelMessage) {
+		// 	// log.Print("Server: Received Msg from DataChannel", len(msg.Data))
+		// 	if msg.IsString {
+		// 		trace("Listener: DataChannel OnMessage: Received string message, skipping")
+		// 		return
+		// 	}
+		// 	conn.pushReadData(msg.Data)
+		// })
 	})
 
 	buf := make([]byte, 8 * 1024) // TODO: hardcoded to be big enough for the signalling messages

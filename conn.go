@@ -1,7 +1,6 @@
 package rtcnet
 
 import (
-	"fmt"
 	"net"
 	"time"
 	"sync"
@@ -9,11 +8,14 @@ import (
 	"errors"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/pion/datachannel"
 )
 
 type Conn struct {
 	peerConn *webrtc.PeerConnection
 	dataChannel *webrtc.DataChannel
+	raw datachannel.ReadWriteCloser
+
 	readChan chan []byte
 	errorChan chan error
 
@@ -23,16 +25,8 @@ type Conn struct {
 func newConn(peer *webrtc.PeerConnection) *Conn {
 	return &Conn{
 		peerConn: peer,
-		readChan: make(chan []byte, 1024), //TODO! - Sizing
 		errorChan: make(chan error, 16), //TODO! - Sizing
 	}
-}
-
-// For pushing read data out of the datachannel and into the read buffer
-func (c *Conn) pushReadData(dat []byte) {
-	if c.closed.Load() { return } // Skip if we are already closed
-
-	c.readChan <- dat
 }
 
 // For pushing error data out of the webrtc connection into the error buffer
@@ -45,30 +39,16 @@ func (c *Conn) pushErrorData(err error) {
 
 func (c *Conn) Read(b []byte) (int, error) {
 	select {
-	case err, ok := <-c.errorChan:
-		if !ok {
-			return 0, net.ErrClosed
-		}
+	case err := <-c.errorChan:
 		return 0, err // There was some error
-
-		case dat, ok := <- c.readChan:
-		if !ok {
-			return 0, net.ErrClosed
-		}
-		if len(dat) > len(b) {
-			return 0, fmt.Errorf("message too big") // TODO - Instead of failing, should we just return partial?
-		}
-		copy(b, dat)
-		return len(dat), nil
+	default:
+		// Just exit
 	}
+	return c.raw.Read(b)
 }
 
 func (c *Conn) Write(b []byte) (int, error) {
-	err := c.dataChannel.Send(b)
-	if err != nil {
-		return 0, err
-	}
-	return len(b), nil
+	return c.raw.Write(b)
 }
 
 func (c *Conn) Close() error {
@@ -79,12 +59,12 @@ func (c *Conn) Close() error {
 
 		err1 := c.dataChannel.Close()
 		err2 := c.peerConn.Close()
+		err3 := c.raw.Close()
 
-		close(c.readChan)
 		close(c.errorChan)
 
-		if err1 != nil || err2 != nil {
-			closeErr = errors.Join(errors.New("failed to close: (datachannel, peerconn)"), err1, err2)
+		if err1 != nil || err2 != nil || err3 != nil {
+			closeErr = errors.Join(errors.New("failed to close: (datachannel, peerconn, raw)"), err1, err2, err3)
 			logErr("conn: closing error: ", closeErr)
 		}
 	})
