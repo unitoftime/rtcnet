@@ -55,7 +55,7 @@ func (l dLog) Log(msg ...any) {
 }
 
 func (l dLog) LogErr(msg string, err error) {
-	log.Printf("%s: %w", msg, err)
+	log.Printf("%s: %s\n", msg, err)
 }
 
 // Actual log functions

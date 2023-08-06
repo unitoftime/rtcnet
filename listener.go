@@ -65,6 +65,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 }
 func (l *Listener) Close() error {
 	l.closed.Store(true)
+	// TODO: these aren't channel safe. need to do a boolean check before writing to them.
 	close(l.pendingAccepts)
 	close(l.pendingAcceptErrors)
 
@@ -75,6 +76,8 @@ func (l *Listener) Addr() net.Addr {
 }
 
 func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
+	defer trace("finished attemptWebRtcNegotiation")
+
 	var candidatesMux sync.Mutex
 	pendingCandidates := make([]*webrtc.ICECandidate, 0)
 	config := webrtc.Configuration{
@@ -139,7 +142,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 
 	// Register data channel creation handling
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-		conn := newConn(peerConnection, wsConn)
+		conn := newConn(peerConnection)
 		conn.dataChannel = d
 
 		// Register channel opening handling
@@ -149,10 +152,10 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			l.pendingAccepts <- conn
 		})
 
-		// Register channel opening handling
-		d.OnClose(func() {
-			trace("Listener: Data channel was closed!!")
-		})
+		// // Register channel opening handling
+		// d.OnClose(func() {
+		// 	trace("Listener: Data channel was closed!")
+		// })
 
 		// Register text message handling
 		d.OnMessage(func(msg webrtc.DataChannelMessage) {
@@ -161,16 +164,17 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 				trace("Listener: DataChannel OnMessage: Received string message, skipping")
 				return
 			}
-			conn.readChan <- msg.Data
+			conn.pushReadData(msg.Data)
 		})
 	})
 
-	buf := make([]byte, 8 * 1024)
+	buf := make([]byte, 8 * 1024) // TODO: hardcoded to be big enough for the signalling messages
 	for {
 		n, err := wsConn.Read(buf)
 		if err != nil {
 			// TODO: Are there any cases where we might get an error here but its not fatal?
 			// Assume the websocket is closed and break
+			logErr("error reading websocket", err)
 			break
 		}
 

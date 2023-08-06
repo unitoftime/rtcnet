@@ -37,7 +37,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 		return nil, err
 	}
 
-	conn := newConn(peerConnection, wSock)
+	conn := newConn(peerConnection)
 	connFinish := make(chan bool)
 	peerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
 		// log.Debug().Msg("Dial: OnICECandidate")
@@ -55,12 +55,10 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 			sigMsg := signalMsg{
 				Candidate: &candidateMsg{c.ToJSON()},
 			}
-			err := sendMsg(conn.websocket, sigMsg)
+			err := sendMsg(wSock, sigMsg)
 			if err != nil {
 				logErr("Dial: Receive Peer OnIceCandidate", err)
-				if !conn.closed {
-					conn.errorChan <- err
-				}
+				conn.pushErrorData(err)
 				return
 			}
 		}
@@ -69,7 +67,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 	go func() {
 		buf := make([]byte, 8 * 1024)
 		for {
-			n, err := conn.websocket.Read(buf)
+			n, err := wSock.Read(buf)
 			if err != nil {
 				// TODO: Are there any cases where we might get an error here but its not fatal?
 				// Assume the websocket is closed and break
@@ -94,9 +92,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 				err := peerConnection.SetRemoteDescription(sdp)
 				if err != nil {
 					logErr("Dial: SetRemoteDescription", err)
-					if !conn.closed {
-						conn.errorChan <- err
-					}
+					conn.pushErrorData(err)
 					return
 				}
 
@@ -108,12 +104,10 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 					sigMsg := signalMsg{
 						Candidate: &candidateMsg{c.ToJSON()},
 					}
-					err := sendMsg(conn.websocket, sigMsg)
+					err := sendMsg(wSock, sigMsg)
 					if err != nil {
 						logErr("Dial: Failed Websocket Send: Pending Candidate Msg", err)
-						if !conn.closed {
-							conn.errorChan <- err
-						}
+						conn.pushErrorData(err)
 						return
 					}
 				}
@@ -123,9 +117,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 				err := peerConnection.AddICECandidate(msg.Candidate.CandidateInit)
 				if err != nil {
 					logErr("Dial: AddIceCandidate", err)
-					if !conn.closed {
-						conn.errorChan <- err
-					}
+					conn.pushErrorData(err)
 					return
 				}
 			} else {
@@ -167,7 +159,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 			// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 			// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
 
-			conn.errorChan <- fmt.Errorf("Peer Connection has gone to failed")
+			conn.pushErrorData(fmt.Errorf("Peer Connection has gone to failed"))
 		} else if s == webrtc.PeerConnectionStateDisconnected {
 			trace("Dial: PeerConnectionStateDisconnected")
 			// conn.errorChan <- fmt.Errorf("Peer Connection has gone to disconnected")
@@ -189,7 +181,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 			trace("Dial: DataChannel OnMessage: Received string message, skipping")
 			return
 		}
-		conn.readChan <- msg.Data
+		conn.pushReadData(msg.Data)
 	})
 
 	// Create an offer to send to the other process
@@ -212,7 +204,7 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 	sigMsg := signalMsg{
 		SDP: &sdpMsg{ offer.Type, offer.SDP },
 	}
-	err = sendMsg(conn.websocket, sigMsg)
+	err = sendMsg(wSock, sigMsg)
 	if err != nil {
 		logErr("Dial: websocket.Send RtcSdp Offer", err)
 		return nil, err
