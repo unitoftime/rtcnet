@@ -10,7 +10,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
+func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 	wSock, err := dialWebsocket(address, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,6 @@ func Dial(address string, tlsConfig *tls.Config) (*Conn, error) {
 	}()
 
 	// Create a datachannel with label 'data'
-	ordered := false
 	// maxRetransmits := uint16(0)
 	dataChannelOptions := webrtc.DataChannelInit{
 		Ordered: &ordered,
