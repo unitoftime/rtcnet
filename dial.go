@@ -172,10 +172,11 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 		printDataChannel(dataChannel)
 		trace("Dial: Data Channel OnOpen")
 
-		conn.raw, err = dataChannel.Detach()
+		detached, err := dataChannel.Detach()
 		if err != nil {
 			conn.pushErrorData(err)
 		} else {
+			conn.raw = detached
 			conn.dataChannel = dataChannel
 			connFinish <- true
 		}
