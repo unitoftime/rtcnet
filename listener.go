@@ -127,10 +127,11 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		trace("Listener: Peer Connection State has changed: ", s.String())
 
-		// if s == webrtc.PeerConnectionStateClosed {
-		// 	// This means the webrtc was closed by one side. Just close it on the other side
-		// 	// Note: because this is the listen side. I don't think we actually need to close this
-		// }
+		if s == webrtc.PeerConnectionStateClosed {
+			// This means the webrtc was closed by one side. Just close it on the other side
+			// Note: because this is the listen side. I don't think we actually need to close this
+			trace("Listener: Peer Connection has been closed!")
+		}
 
 		if s == webrtc.PeerConnectionStateFailed {
 			// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
@@ -139,6 +140,10 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			trace("Listener: Peer Connection has gone to failed")
 
 			// TODO - Do some cancellation
+			err := peerConnection.Close()
+			if err != nil {
+				logErr("PeerConnectionStateFailed: ", err)
+			}
 		}
 	})
 

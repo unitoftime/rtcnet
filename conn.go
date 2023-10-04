@@ -23,10 +23,12 @@ type Conn struct {
 	closed atomic.Bool
 }
 func newConn(peer *webrtc.PeerConnection) *Conn {
-	return &Conn{
+	c := &Conn{
 		peerConn: peer,
 		errorChan: make(chan error, 16), //TODO! - Sizing
 	}
+	trace("conn: new: ", c)
+	return c
 }
 
 // For pushing error data out of the webrtc connection into the error buffer
@@ -54,7 +56,7 @@ func (c *Conn) Write(b []byte) (int, error) {
 func (c *Conn) Close() error {
 	var closeErr error
 	c.closeOnce.Do(func() {
-		trace("conn: closing")
+		trace("conn: closing: ", c)
 		c.closed.Store(true)
 
 		err1 := c.dataChannel.Close()
