@@ -1,11 +1,11 @@
 package rtcnet
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
-	"crypto/tls"
-	"encoding/json"
 
 	"github.com/pion/webrtc/v3"
 )
@@ -28,14 +28,15 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 			// },
 		},
 	}
-
 	trace("Dial: Starting WebRTC negotiation")
 
 	api := getSettingsEngineApi()
 
 	peerConnection, err := api.NewPeerConnection(config)
 	if err != nil {
-		logErr("Dial: NewPeerConnection", err)
+		logger.Error().
+			Err(err).
+			Msg("Dial: NewPeerConnection")
 		return nil, err
 	}
 
@@ -59,7 +60,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 			}
 			err := sendMsg(wSock, sigMsg)
 			if err != nil {
-				logErr("Dial: Receive Peer OnIceCandidate", err)
+				logger.Error().
+					Err(err).
+					Msg("Dial: Receive Peer OnIceCandidate")
 				conn.pushErrorData(err)
 				return
 			}
@@ -93,7 +96,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 
 				err := peerConnection.SetRemoteDescription(sdp)
 				if err != nil {
-					logErr("Dial: SetRemoteDescription", err)
+					logger.Error().
+						Err(err).
+						Msg("Dial: SetRemoteDescription")
 					conn.pushErrorData(err)
 					return
 				}
@@ -108,7 +113,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 					}
 					err := sendMsg(wSock, sigMsg)
 					if err != nil {
-						logErr("Dial: Failed Websocket Send: Pending Candidate Msg", err)
+					logger.Error().
+						Err(err).
+						Msg("Dial: Failed Websocket Send: Pending Candidate Msg")
 						conn.pushErrorData(err)
 						return
 					}
@@ -118,13 +125,15 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 				trace("Dial: RtcCandidateMsg")
 				err := peerConnection.AddICECandidate(msg.Candidate.CandidateInit)
 				if err != nil {
-					logErr("Dial: AddIceCandidate", err)
+					logger.Error().
+						Err(err).
+						Msg("Dial: AddIceCandidate")
 					conn.pushErrorData(err)
 					return
 				}
 			} else {
 				// Warning: no valid message included
-				trace("Dial: ws received unknown message ", string(buf[:n]))
+				trace("Dial: ws received unknown message " + string(buf[:n]))
 				continue
 			}
 		}
@@ -138,7 +147,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 	}
 	dataChannel, err := peerConnection.CreateDataChannel("data", &dataChannelOptions)
 	if err != nil {
-		logErr("Dial: CreateDataChannel", err)
+		logger.Error().
+			Err(err).
+			Msg("Dial: CreateDataChannel")
 		return nil, err
 	}
 
@@ -146,7 +157,7 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 	// Set the handler for Peer connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-		trace("Dial: Peer Connection State has changed: ", s.String())
+		trace("Dial: Peer Connection State has changed: " + s.String())
 
 		// if s == webrtc.PeerConnectionStateClosed {
 		// 	// This means the webrtc was closed by one side. Just close it on the other side
@@ -154,7 +165,7 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 		// }
 
 		if s == webrtc.PeerConnectionStateFailed {
-			trace("Dial: PeerConnectionStateFailed", nil)
+			trace("Dial: PeerConnectionStateFailed")
 
 			// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
 			// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
@@ -196,7 +207,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 	// Create an offer to send to the other process
 	offer, err := peerConnection.CreateOffer(nil)
 	if err != nil {
-		logErr("Dial: CreateOffer", err)
+		logger.Error().
+			Err(err).
+			Msg("Dial: CreateOffer")
 		return nil, err
 	}
 	// fmt.Println("CreateOffer")
@@ -205,7 +218,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 	// Note: this will start the gathering of ICE candidates
 	err = peerConnection.SetLocalDescription(offer)
 	if err != nil {
-		logErr("Dial: SetLocalDescription", err)
+		logger.Error().
+			Err(err).
+			Msg("Dial: SetLocalDescription")
 		return nil, err
 	}
 	// fmt.Println("SetLocalDesc")
@@ -215,14 +230,18 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 	}
 	err = sendMsg(wSock, sigMsg)
 	if err != nil {
-		logErr("Dial: websocket.Send RtcSdp Offer", err)
+		logger.Error().
+			Err(err).
+			Msg("Dial: websocket.Send RtcSdp Offer")
 		return nil, err
 	}
 
 	// Wait until the webrtc connection is finished getting setup
 	select {
 	case err := <-conn.errorChan:
-		logErr("Dial: error exit", err)
+		logger.Error().
+			Err(err).
+			Msg("Dial: error exit")
 		return nil, err // There was an error in setup
 	case <-connFinish:
 		trace("Dial: normal exit")
@@ -235,7 +254,9 @@ func sendMsg(conn net.Conn, msg signalMsg) error {
 	// log.Print("sendMsg: ", msg)
 	msgDat, err := json.Marshal(msg)
 	if err != nil {
-		logErr("sendMsg: Marshal", err)
+		logger.Error().
+			Err(err).
+			Msg("sendMsg: Marshal")
 		return err
 	}
 
@@ -243,7 +264,9 @@ func sendMsg(conn net.Conn, msg signalMsg) error {
 
 	_, err = conn.Write(msgDat)
 	if err != nil {
-		logErr("sendMsg: conn write", err)
+		logger.Error().
+			Err(err).
+			Msg("sendMsg: conn write")
 		return err
 	}
 

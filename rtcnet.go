@@ -2,8 +2,6 @@ package rtcnet
 
 import (
 	"github.com/pion/webrtc/v3"
-
-	"log"
 )
 
 // Notes: https://webrtcforthecurious.com/docs/01-what-why-and-how/
@@ -39,41 +37,3 @@ type candidateMsg struct {
 	CandidateInit webrtc.ICECandidateInit
 }
 
-// Logger
-type Logger interface {
-	Log(...any)
-	LogErr(string, error)
-}
-
-var DefaultLogger Logger
-
-// func init() {
-// 	UseDefaultLogger()
-// }
-
-// A basic default logger implementation
-type dLog struct {
-}
-func UseDefaultLogger() {
-	DefaultLogger = dLog{}
-}
-func (l dLog) Log(msg ...any) {
-	log.Println(msg...)
-}
-
-func (l dLog) LogErr(msg string, err error) {
-	log.Printf("%s: %s\n", msg, err)
-}
-
-// Actual log functions
-func trace(msg ...any) {
-	if DefaultLogger != nil {
-		DefaultLogger.Log(msg...)
-	}
-}
-
-func logErr(msg string, err error) {
-	if DefaultLogger != nil {
-		DefaultLogger.LogErr(msg, err)
-	}
-}

@@ -1,14 +1,14 @@
 package rtcnet
 
 import (
+	"errors"
 	"net"
-	"time"
 	"sync"
 	"sync/atomic"
-	"errors"
+	"time"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/pion/datachannel"
+	"github.com/pion/webrtc/v3"
 )
 
 type Conn struct {
@@ -27,7 +27,7 @@ func newConn(peer *webrtc.PeerConnection) *Conn {
 		peerConn: peer,
 		errorChan: make(chan error, 16), //TODO! - Sizing
 	}
-	trace("conn: new: ", c)
+	trace("conn: new: ")
 	return c
 }
 
@@ -56,7 +56,7 @@ func (c *Conn) Write(b []byte) (int, error) {
 func (c *Conn) Close() error {
 	var closeErr error
 	c.closeOnce.Do(func() {
-		trace("conn: closing: ", c)
+		trace("conn: closing: ")
 		c.closed.Store(true)
 
 		err1 := c.dataChannel.Close()
@@ -67,7 +67,9 @@ func (c *Conn) Close() error {
 
 		if err1 != nil || err2 != nil || err3 != nil {
 			closeErr = errors.Join(errors.New("failed to close: (datachannel, peerconn, raw)"), err1, err2, err3)
-			logErr("conn: closing error: ", closeErr)
+			logger.Error().
+				Err(closeErr).
+				Msg("Closing rtc connection")
 		}
 	})
 	return closeErr

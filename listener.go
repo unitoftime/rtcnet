@@ -1,12 +1,12 @@
 package rtcnet
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
-	"crypto/tls"
-	"encoding/json"
 
 	"github.com/pion/webrtc/v3"
 )
@@ -125,7 +125,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	// Set the handler for Peer connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-		trace("Listener: Peer Connection State has changed: ", s.String())
+		trace("Listener: Peer Connection State has changed: " + s.String())
 
 		if s == webrtc.PeerConnectionStateClosed {
 			// This means the webrtc was closed by one side. Just close it on the other side
@@ -142,7 +142,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			// TODO - Do some cancellation
 			err := peerConnection.Close()
 			if err != nil {
-				logErr("PeerConnectionStateFailed: ", err)
+				logger.Error().
+					Err(err).
+					Msg("PeerConnectionStateFailed: ")
 			}
 		}
 	})
@@ -188,7 +190,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 		if err != nil {
 			// TODO: Are there any cases where we might get an error here but its not fatal?
 			// Assume the websocket is closed and break
-			logErr("error reading websocket", err)
+			logger.Error().
+				Err(err).
+				Msg("error reading websocket")
 			break
 		}
 
@@ -209,7 +213,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 
 			err := peerConnection.SetRemoteDescription(sdp)
 			if err != nil {
-				logErr("Listener: SetRemoteDescription", err)
+				logger.Error().
+					Err(err).
+					Msg("Listener: SetRemoteDescription")
 				l.pendingAcceptErrors <- fmt.Errorf("RtcSdpMsg Recv - Failed to set remote description: %w", err)
 				return
 			}
@@ -217,7 +223,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			// Create an answer to send to the other process
 			answer, err := peerConnection.CreateAnswer(nil)
 			if err != nil {
-				logErr("Listener: CreateAnswer", err)
+				logger.Error().
+					Err(err).
+					Msg("Listener: CreateAnswer")
 				l.pendingAcceptErrors <- fmt.Errorf("RtcSdpMsg Recv - Failed to create answer: %w", err)
 				return
 			}
@@ -227,7 +235,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			}
 			err = sendMsg(wsConn, sigMsg)
 			if err != nil {
-				logErr("Listener: Websocket Send Answer", err)
+				logger.Error().
+					Err(err).
+					Msg("Listener: Websocket Send Answer")
 				l.pendingAcceptErrors <- fmt.Errorf("RtcSdpMsg Recv - Failed to send SDP answer: %w", err)
 				return
 			}
@@ -235,7 +245,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			// Sets the LocalDescription, and starts our UDP listeners
 			err = peerConnection.SetLocalDescription(answer)
 			if err != nil {
-				logErr("Listener: SetLocalDescription", err)
+				logger.Error().
+					Err(err).
+					Msg("Listener: SetLocalDescription")
 				l.pendingAcceptErrors <- fmt.Errorf("RtcSdpMsg Recv - Failed to set local SDP: %w", err)
 				return
 			}
@@ -248,7 +260,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 				}
 				err := sendMsg(wsConn, sigMsg)
 				if err != nil {
-					logErr("Listener: Websocket Send Pending Candidate Message", err)
+					logger.Error().
+						Err(err).
+						Msg("Listener: Websocket Send Pending Candidate Message")
 					l.pendingAcceptErrors <- fmt.Errorf("RtcSdpMsg Recv - Failed to send RtcCandidate: %w", err)
 					return
 				}
@@ -258,13 +272,15 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			// log.Debug().Msg("Listener: RtcCandidateMsg")
 			err := peerConnection.AddICECandidate(msg.Candidate.CandidateInit)
 			if err != nil {
-				logErr("Listener: AddICECandidate", err)
+				logger.Error().
+					Err(err).
+					Msg("Listener: AddICECandidate")
 				l.pendingAcceptErrors <- fmt.Errorf("RtcCandidateMsg Recv - Failed to add candidate: %w", err)
 				return
 			}
 		} else {
 			// Warning: no valid message included
-			trace("Listener: ws received unknown message: ", string(buf[:n]))
+			trace("Listener: ws received unknown message: " + string(buf[:n]))
 			continue
 		}
 	}
