@@ -87,13 +87,19 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	pendingCandidates := make([]*webrtc.ICECandidate, 0)
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: l.iceServers,
-			},
+			// {
+			// 	URLs: l.iceServers,
+			// },
 			// {
 			// 	URLs: []string{"stun:stun.l.google.com:19302"},
 			// },
 		},
+	}
+	if len(l.iceServers) > 0 {
+		config.ICEServers = append(config.ICEServers,
+			webrtc.ICEServer{
+				URLs: l.iceServers,
+			})
 	}
 
 	peerConnection, err := api.NewPeerConnection(config)

@@ -23,13 +23,16 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: iceServers,
-			},
 			// {
 			// 	URLs: []string{"stun:stun.l.google.com:19302"},
 			// },
 		},
+	}
+	if len(iceServers) > 0 {
+		config.ICEServers = append(config.ICEServers,
+			webrtc.ICEServer{
+				URLs: iceServers,
+			})
 	}
 	trace("Dial: Starting WebRTC negotiation")
 
