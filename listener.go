@@ -14,6 +14,7 @@ import (
 type ListenConfig struct {
 	TlsConfig *tls.Config
 	OriginPatterns []string
+	IceServers []string
 }
 
 type Listener struct {
@@ -21,6 +22,7 @@ type Listener struct {
 	pendingAccepts chan *Conn // TODO - should this get buffered?
 	pendingAcceptErrors chan error // TODO - should this get buffered?
 	closed atomic.Bool
+	iceServers []string
 }
 
 func NewListener(address string, config ListenConfig) (*Listener, error) {
@@ -33,6 +35,7 @@ func NewListener(address string, config ListenConfig) (*Listener, error) {
 		wsListener: wsl,
 		pendingAccepts: make(chan *Conn),
 		pendingAcceptErrors: make(chan error),
+		iceServers: config.IceServers,
 	}
 
 	go func() {
@@ -84,6 +87,9 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	pendingCandidates := make([]*webrtc.ICECandidate, 0)
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: l.iceServers,
+			},
 			// {
 			// 	URLs: []string{"stun:stun.l.google.com:19302"},
 			// },

@@ -10,7 +10,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
+func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
 	wSock, err := dialWebsocket(address, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -23,6 +23,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool) (*Conn, error) {
 
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: iceServers,
+			},
 			// {
 			// 	URLs: []string{"stun:stun.l.google.com:19302"},
 			// },
