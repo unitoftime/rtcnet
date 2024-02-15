@@ -85,6 +85,7 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 				logger.Error().
 					Err(err).
 					Msg("Failed to read from websocket")
+				conn.pushErrorData(err)
 				return
 			}
 
