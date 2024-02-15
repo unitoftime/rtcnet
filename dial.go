@@ -49,7 +49,7 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 	conn := newConn(peerConnection)
 	connFinish := make(chan bool)
 	peerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
-		// log.Debug().Msg("Dial: OnICECandidate")
+		logger.Trace().Msg("Dial: peerConnection.OnICECandidate")
 		if c == nil {
 			return
 		}
@@ -82,6 +82,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 			if err != nil {
 				// TODO: Are there any cases where we might get an error here but its not fatal?
 				// Assume the websocket is closed and break
+				logger.Error().
+					Err(err).
+					Msg("Failed to read from websocket")
 				return
 			}
 
@@ -91,6 +94,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 			err = json.Unmarshal(buf[:n], &msg)
 			if err != nil {
 				// There was some problem with the unmarshal. Let's just continue looking for another valid message
+				logger.Error().
+					Err(err).
+					Msg("Failed to unmarshal signalling message")
 				continue
 			}
 
@@ -109,22 +115,25 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 					return
 				}
 
-				candidatesMux.Lock()
-				defer candidatesMux.Unlock()
-
-				for _, c := range pendingCandidates {
-					trace(fmt.Sprintf("Dial: %v", *c))
-					sigMsg := signalMsg{
-						Candidate: &candidateMsg{c.ToJSON()},
+				// Warning: Be very careful with canadidatesMux
+				{
+					candidatesMux.Lock()
+					for _, c := range pendingCandidates {
+						trace(fmt.Sprintf("Dial: pendingCandidates: %v", *c))
+						sigMsg := signalMsg{
+							Candidate: &candidateMsg{c.ToJSON()},
+						}
+						err := sendMsg(wSock, sigMsg)
+						if err != nil {
+							logger.Error().
+								Err(err).
+								Msg("Dial: Failed Websocket Send: Pending Candidate Msg")
+							conn.pushErrorData(err)
+							candidatesMux.Unlock()
+							return
+						}
 					}
-					err := sendMsg(wSock, sigMsg)
-					if err != nil {
-					logger.Error().
-						Err(err).
-						Msg("Dial: Failed Websocket Send: Pending Candidate Msg")
-						conn.pushErrorData(err)
-						return
-					}
+					candidatesMux.Unlock()
 				}
 
 			} else if msg.Candidate != nil {

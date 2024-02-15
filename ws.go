@@ -1,13 +1,13 @@
 package rtcnet
 
 import (
+	"context"
+	"crypto/tls"
 	"errors"
-	"sync/atomic"
-	"time"
 	"net"
 	"net/http"
-	"crypto/tls"
-	"context"
+	"sync/atomic"
+	"time"
 
 	"nhooyr.io/websocket"
 )
@@ -15,7 +15,7 @@ import (
 // Returns a connected socket or fails with an error
 func dialWebsocket(address string, tlsConfig *tls.Config) (net.Conn, error) {
 	// TODO: make timeout configurable
-	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 10 * time.Second)
 
 	url := "wss://" + address
 	wsConn, err := dialWs(ctx, url, tlsConfig)
