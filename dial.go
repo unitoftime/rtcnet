@@ -1,17 +1,22 @@
 package rtcnet
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/pion/webrtc/v3"
 )
 
 func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
-	wSock, err := dialWebsocket(address, tlsConfig)
+	dialCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second) // TODO: pass in timeout
+	defer cancel()
+
+	wSock, err := dialWebsocket(address, tlsConfig, dialCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +90,9 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 				logger.Error().
 					Err(err).
 					Msg("Failed to read from websocket")
-				conn.pushErrorData(err)
+
+				// TODO: We don't want this to cause an error, if it closed for normal reasons. Else we do want it to cause an error
+				// conn.pushErrorData(err)
 				return
 			}
 
@@ -254,6 +261,11 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 
 	// Wait until the webrtc connection is finished getting setup
 	select {
+	case <-dialCtx.Done():
+		logger.Error().
+			Err(err).
+			Msg("Dial: context Done")
+		return nil, dialCtx.Err()
 	case err := <-conn.errorChan:
 		logger.Error().
 			Err(err).

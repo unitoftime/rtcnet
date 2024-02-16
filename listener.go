@@ -15,11 +15,12 @@ type ListenConfig struct {
 	TlsConfig *tls.Config
 	OriginPatterns []string
 	IceServers []string
+	// AllowWebsocketFallback bool // TODO: Restriction?
 }
 
 type Listener struct {
 	wsListener *websocketListener
-	pendingAccepts chan *Conn // TODO - should this get buffered?
+	pendingAccepts chan net.Conn // TODO - should this get buffered?
 	pendingAcceptErrors chan error // TODO - should this get buffered?
 	closed atomic.Bool
 	iceServers []string
@@ -33,7 +34,7 @@ func NewListener(address string, config ListenConfig) (*Listener, error) {
 
 	rtcListener := &Listener{
 		wsListener: wsl,
-		pendingAccepts: make(chan *Conn),
+		pendingAccepts: make(chan net.Conn),
 		pendingAcceptErrors: make(chan error),
 		iceServers: config.IceServers,
 	}
@@ -50,8 +51,13 @@ func NewListener(address string, config ListenConfig) (*Listener, error) {
 				return // If closed then just exit
 			}
 
-			// Try and negotiate a webrtc connection for the websocket connection
-			go rtcListener.attemptWebRtcNegotiation(wsConn)
+			fallback, isFallback := wsConn.(wsFallback)
+			if isFallback {
+				rtcListener.pendingAccepts <- fallback.Conn
+			} else {
+				// Try and negotiate a webrtc connection for the websocket connection
+				go rtcListener.attemptWebRtcNegotiation(wsConn)
+			}
 		}
 	}()
 

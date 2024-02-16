@@ -13,9 +13,8 @@ import (
 )
 
 // Returns a connected socket or fails with an error
-func dialWebsocket(address string, tlsConfig *tls.Config) (net.Conn, error) {
-	// TODO: make timeout configurable
-	ctx, _ := context.WithTimeout(context.Background(), 10 * time.Second)
+func dialWebsocket(address string, tlsConfig *tls.Config, ctx context.Context) (net.Conn, error) {
+	// ctx, _ := context.WithTimeout(context.Background(), 10 * time.Second)
 
 	url := "wss://" + address
 	wsConn, err := dialWs(ctx, url, tlsConfig)
@@ -23,6 +22,7 @@ func dialWebsocket(address string, tlsConfig *tls.Config) (net.Conn, error) {
 		return nil, err
 	}
 
+	// Note: The entire websocket net.Conn lifetime is managed by the context too
 	// ctx, cancel := context.WithCancel(context.Background())
 	conn := websocket.NetConn(ctx, wsConn, websocket.MessageBinary)
 
@@ -85,6 +85,10 @@ func newWebsocketListener(address string, config ListenConfig) (*websocketListen
 	return wsl, nil
 }
 
+type wsFallback struct {
+	net.Conn
+}
+
 func (l *websocketListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: l.originPatterns,
@@ -95,11 +99,26 @@ func (l *websocketListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build the net.Conn and push to the channel
-	ctx := context.Background() // TODO: configurable context?
-	conn := websocket.NetConn(ctx, wsConn, websocket.MessageBinary)
+	fallback := false
+	if r.URL != nil {
+		if r.URL.Path == "/wss" {
+			logger.Warn().Msg("Dialer requested wss fallback socket!")
+			fallback = true
+		}
+	}
 
-	l.pendingAccepts <- conn
+	// Build the net.Conn and push to the channel
+	if fallback {
+		ctx := context.Background() // Note: This has to be background if it is a fallback path
+		conn := websocket.NetConn(ctx, wsConn, websocket.MessageBinary)
+		conn = wsFallback{conn}
+		l.pendingAccepts <- conn
+	} else {
+		// TODO: make timeout configurable?
+		ctx, _ := context.WithTimeout(context.Background(), 30 * time.Second)
+		conn := websocket.NetConn(ctx, wsConn, websocket.MessageBinary)
+		l.pendingAccepts <- conn
+	}
 }
 
 func (l *websocketListener) Accept() (net.Conn, error) {
