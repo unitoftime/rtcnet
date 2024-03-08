@@ -182,10 +182,11 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		trace("Dial: Peer Connection State has changed: " + s.String())
 
-		// if s == webrtc.PeerConnectionStateClosed {
-		// 	// This means the webrtc was closed by one side. Just close it on the other side
-		// 	sock.Close()
-		// }
+		if s == webrtc.PeerConnectionStateClosed {
+			trace("Dial: webrtc.PeerConnectionStateClosed")
+			// This means the webrtc was closed by one side. Just close it on the other side
+			conn.Close()
+		}
 
 		if s == webrtc.PeerConnectionStateFailed {
 			trace("Dial: PeerConnectionStateFailed")
@@ -194,7 +195,8 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 			// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 			// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
 
-			conn.pushErrorData(fmt.Errorf("Peer Connection has gone to failed"))
+			// conn.pushErrorData(fmt.Errorf("Peer Connection has gone to failed"))
+			conn.Close()
 		} else if s == webrtc.PeerConnectionStateDisconnected {
 			trace("Dial: PeerConnectionStateDisconnected")
 			// conn.errorChan <- fmt.Errorf("Peer Connection has gone to disconnected")

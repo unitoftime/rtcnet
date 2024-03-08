@@ -16,7 +16,7 @@ type Conn struct {
 	dataChannel *webrtc.DataChannel
 	raw datachannel.ReadWriteCloser
 
-	readChan chan []byte
+	// readChan chan []byte
 	errorChan chan error
 
 	closeOnce sync.Once
@@ -27,7 +27,6 @@ func newConn(peer *webrtc.PeerConnection) *Conn {
 		peerConn: peer,
 		errorChan: make(chan error, 16), //TODO! - Sizing
 	}
-	trace("conn: new: ")
 	return c
 }
 
@@ -50,6 +49,12 @@ func (c *Conn) Read(b []byte) (int, error) {
 }
 
 func (c *Conn) Write(b []byte) (int, error) {
+	select {
+	case err := <-c.errorChan:
+		return 0, err // There was some error
+	default:
+		// Just exit
+	}
 	return c.raw.Write(b)
 }
 
