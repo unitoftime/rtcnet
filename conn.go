@@ -65,7 +65,7 @@ func (c *Conn) Close() error {
 		c.closed.Store(true)
 
 		var err1, err2, err3 error
-		if c.datachannel != nil {
+		if c.dataChannel != nil {
 			err1 = c.dataChannel.Close()
 		}
 		if c.peerConn != nil {
