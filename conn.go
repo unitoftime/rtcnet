@@ -64,9 +64,16 @@ func (c *Conn) Close() error {
 		trace("conn: closing: ")
 		c.closed.Store(true)
 
-		err1 := c.dataChannel.Close()
-		err2 := c.peerConn.Close()
-		err3 := c.raw.Close()
+		var err1, err2, err3 error
+		if c.datachannel != nil {
+			err1 = c.dataChannel.Close()
+		}
+		if c.peerConn != nil {
+			err2 = c.peerConn.Close()
+		}
+		if c.raw != nil {
+			err3 = c.raw.Close()
+		}
 
 		close(c.errorChan)
 
