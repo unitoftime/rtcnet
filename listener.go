@@ -132,7 +132,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 				Candidate: &candidateMsg{c.ToJSON()},
 			}
 
-			sendMsg(wsConn, sigMsg)
+			err := sendMsg(wsConn, sigMsg)
 			if err != nil {
 				l.pendingAcceptErrors <- fmt.Errorf("OnIceCandidate Send - Possible websocket disconnect: %w", err)
 				return
@@ -160,9 +160,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			// TODO - Do some cancellation
 			err := peerConnection.Close()
 			if err != nil {
-				logger.Error().
-					Err(err).
-					Msg("PeerConnectionStateFailed: ")
+				logger.Error().Err(err).Msg("PeerConnectionStateFailed")
 			}
 		}
 	})
@@ -177,6 +175,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 			printDataChannel(d)
 			wsConn.Close()
 
+			var err error
 			conn.raw, err = d.Detach()
 			if err != nil {
 				l.pendingAcceptErrors <- err
