@@ -13,7 +13,7 @@ import (
 )
 
 func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
-	dialCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second) // TODO: pass in timeout
+	dialCtx, cancel := context.WithTimeout(context.Background(), 10 * time.Second) // TODO: pass in timeout
 	defer cancel()
 
 	wSock, err := dialWebsocket(address, tlsConfig, dialCtx)
