@@ -21,11 +21,16 @@ type Conn struct {
 
 	closeOnce sync.Once
 	closed atomic.Bool
+
+	localAddr, remoteAddr net.Addr
 }
-func newConn(peer *webrtc.PeerConnection) *Conn {
+func newConn(peer *webrtc.PeerConnection, localAddr, remoteAddr net.Addr) *Conn {
 	c := &Conn{
 		peerConn: peer,
 		errorChan: make(chan error, 16), //TODO! - Sizing
+
+		localAddr: localAddr,
+		remoteAddr: remoteAddr,
 	}
 	return c
 }
@@ -88,13 +93,11 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) LocalAddr() net.Addr {
-	//TODO: implement
-	return nil
+	return c.localAddr
 }
 
 func (c *Conn) RemoteAddr() net.Addr {
-	//TODO: implement
-	return nil
+	return c.remoteAddr
 }
 
 func (c *Conn) SetDeadline(t time.Time) error {

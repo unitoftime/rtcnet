@@ -51,7 +51,7 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 		return nil, err
 	}
 
-	conn := newConn(peerConnection)
+	conn := newConn(peerConnection, wSock.LocalAddr(), wSock.RemoteAddr())
 	connFinish := make(chan bool)
 	peerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
 		logger.Trace().Msg("Dial: peerConnection.OnICECandidate")

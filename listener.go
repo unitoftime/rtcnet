@@ -87,6 +87,9 @@ func (l *Listener) Addr() net.Addr {
 func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	defer trace("finished attemptWebRtcNegotiation")
 
+	localAddr := wsConn.LocalAddr()
+	remoteAddr := wsConn.RemoteAddr()
+
 	api := getSettingsEngineApi()
 
 	var candidatesMux sync.Mutex
@@ -120,6 +123,15 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 		if c == nil {
 			return // Do nothing because the ice candidate was nil for some reason
 		}
+
+		// logger.Trace().
+		// 	Str("Address", c.Address).
+		// 	Str("Protocol", c.Protocol.String()).
+		// 	Uint16("Port", c.Port).
+		// 	Str("CandidateType", c.Typ.String()).
+		// 	Str("RelatedAddress", c.RelatedAddress).
+		// 	Uint16("RelatedPort", c.RelatedPort).
+		// 	Msg("rtcnet: peerConnection.OnICECandidate")
 
 		candidatesMux.Lock()
 		defer candidatesMux.Unlock()
@@ -167,7 +179,7 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 
 	// Register data channel creation handling
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-		conn := newConn(peerConnection)
+		conn := newConn(peerConnection, localAddr, remoteAddr)
 		conn.dataChannel = d
 
 		// Register channel opening handling
