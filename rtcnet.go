@@ -1,7 +1,7 @@
 package rtcnet
 
 import (
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 // Notes: https://webrtcforthecurious.com/docs/01-what-why-and-how/

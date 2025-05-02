@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/pion/datachannel"
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 type Conn struct {

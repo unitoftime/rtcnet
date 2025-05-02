@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
