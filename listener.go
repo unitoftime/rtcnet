@@ -3,7 +3,9 @@ package rtcnet
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -217,11 +219,12 @@ func (l *Listener) attemptWebRtcNegotiation(wsConn net.Conn) {
 	for {
 		n, err := wsConn.Read(buf)
 		if err != nil {
-			// TODO: Are there any cases where we might get an error here but its not fatal?
+			if !errors.Is(err, io.EOF) {
+				logger.Error().
+					Err(err).
+					Msg("error reading websocket")
+			}
 			// Assume the websocket is closed and break
-			logger.Error().
-				Err(err).
-				Msg("error reading websocket")
 			break
 		}
 
