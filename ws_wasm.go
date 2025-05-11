@@ -1,3 +1,4 @@
+//go:build js
 // +build js
 
 package rtcnet
@@ -6,7 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 // Note: You cant inject tlsConfig here, you are required to use the tlsConfiguration as defined by the browser.

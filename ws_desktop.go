@@ -1,13 +1,14 @@
+//go:build !js
 // +build !js
 
 package rtcnet
 
 import (
 	"context"
-	"net/http"
 	"crypto/tls"
+	"net/http"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 func dialWs(ctx context.Context, url string, tlsConfig *tls.Config) (*websocket.Conn, error) {
