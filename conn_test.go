@@ -98,7 +98,7 @@ func TestConn(t *testing.T) {
 	{
 		conn, err := Dial("localhost:2000", &tls.Config{
 			InsecureSkipVerify: true,
-		})
+		}, true, nil)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -133,7 +133,7 @@ func TestConn(t *testing.T) {
 		fmt.Println("Success: ", successCount)
 		err = conn.Close()
 		if err != nil {
-			fmt.Errorf("%v", err)
+			t.Errorf("%v", err)
 		}
 	}
 

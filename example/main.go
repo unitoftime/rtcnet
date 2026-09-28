@@ -69,7 +69,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		conn, err := rtcnet.Dial("localhost:2000", &tls.Config{
 			// Note: This is not safe, you shouldn't do this in production. I'm just doing it because this is a simple example. If you run this example with the client in webassembly, then the browser won't let you do this, so you must configure your browser with a self-signed cert, or you must use a CA
 			InsecureSkipVerify: true,
-		})
+		}, true, nil)
 		if err != nil {
 			panic(err)
 		}

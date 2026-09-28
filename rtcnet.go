@@ -16,7 +16,7 @@ import (
 
 // Current settings engine settings
 // Detaching the datachannel: https://github.com/pion/webrtc/tree/master/examples/data-channels-detach
-func getSettingsEngineApi() *webrtc.API {
+func newAPI() *webrtc.API {
 	s := webrtc.SettingEngine{}
 	s.DetachDataChannels()
 	return webrtc.NewAPI(webrtc.WithSettingEngine(s))
