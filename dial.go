@@ -9,9 +9,14 @@ import (
 )
 
 func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
-	dialCtx, cancel := context.WithTimeout(context.Background(), 10 * time.Second) // TODO: pass in timeout
+	dialCtx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
 	defer cancel()
 
+	return DialContext(dialCtx, address, tlsConfig, ordered, iceServers)
+}
+
+// Dials until the data channel opens or dialCtx is done. The context only bounds the dial, the returned connection outlives it
+func DialContext(dialCtx context.Context, address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
 	// Note: The websocket only carries signaling, so it is closed once Dial returns
 	wSock, err := dialWebsocket(address, tlsConfig, dialCtx)
 	if err != nil {
