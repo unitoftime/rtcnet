@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"time"
+
+	"github.com/pion/webrtc/v4"
 )
 
 func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []string) (*Conn, error) {
@@ -18,7 +20,8 @@ func Dial(address string, tlsConfig *tls.Config, ordered bool, iceServers []stri
 	defer wSock.Close()
 
 	trace("Dial: Starting WebRTC negotiation")
-	h, err := newHandshake(newAPI(), wSock, iceServers)
+	api := webrtc.NewAPI(webrtc.WithSettingEngine(newSettingEngine()))
+	h, err := newHandshake(api, wSock, iceServers)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -20,7 +21,14 @@ const (
 type ListenConfig struct {
 	TlsConfig *tls.Config
 	OriginPatterns []string
+	// Note: STUN lookups run on ephemeral ports rather than the listen port, so their candidates are unreachable when only the listen port is open. Prefer PublicIP
 	IceServers []string
+	// The IPv4 address clients reach this listener at, advertised in place of the local interface addresses.
+	// Needed behind a 1:1 NAT, such as a docker bridge network or a cloud VM without its public IP on an interface
+	PublicIP string
+	// Run ICE-lite: the listener only answers connectivity checks rather than also sending its own, which is less work and traffic per connection.
+	// Only use it when clients can reach the listener directly at its advertised address, ie a public interface or PublicIP with the port forwarded. Lite only uses host candidates, so IceServers must be empty
+	IceLite bool
 	// Max connections that are negotiating or waiting to be accepted. Beyond this, new requests are rejected with a 503. Defaults to 256
 	MaxPendingConns int
 	// AllowWebsocketFallback bool // TODO: Restriction?
@@ -30,6 +38,7 @@ type Listener struct {
 	httpServer *http.Server
 	addr net.Addr
 	api *webrtc.API
+	udpMux io.Closer // Carries the webrtc traffic of every connection, on the same port number as the websocket listener
 	acceptOptions *websocket.AcceptOptions
 	iceServers []string
 
@@ -41,9 +50,19 @@ type Listener struct {
 }
 
 func NewListener(address string, config ListenConfig) (*Listener, error) {
+	if config.IceLite && len(config.IceServers) > 0 {
+		return nil, errors.New("rtcnet: IceLite only uses host candidates, so IceServers must be empty")
+	}
+
 	// TODO - Is tcp always correct here?
 	tcpListener, err := tls.Listen("tcp", address, config.TlsConfig)
 	if err != nil {
+		return nil, err
+	}
+
+	api, udpMux, err := newListenerAPI(tcpListener.Addr().(*net.TCPAddr), config)
+	if err != nil {
+		tcpListener.Close()
 		return nil, err
 	}
 
@@ -55,7 +74,8 @@ func NewListener(address string, config ListenConfig) (*Listener, error) {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	l := &Listener{
 		addr: tcpListener.Addr(),
-		api: newAPI(),
+		api: api,
+		udpMux: udpMux,
 		acceptOptions: &websocket.AcceptOptions{
 			OriginPatterns: config.OriginPatterns,
 		},
@@ -91,12 +111,13 @@ func (l *Listener) Accept() (net.Conn, error) {
 		return nil, context.Cause(l.ctx)
 	}
 }
+// Note: This also closes the shared UDP port, which ends every connection accepted from this listener
 func (l *Listener) Close() error {
 	l.cancel(net.ErrClosed)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
 	defer cancel()
-	return l.httpServer.Shutdown(ctx)
+	return errors.Join(l.httpServer.Shutdown(ctx), l.udpMux.Close())
 }
 func (l *Listener) Addr() net.Addr {
 	return l.addr

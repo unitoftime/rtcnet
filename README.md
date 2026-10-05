@@ -25,6 +25,24 @@ import "github.com/unitoftime/rtcnet"
 
 See [Example](https://github.com/unitoftime/rtcnet/tree/master/example)
 
+# Deploying
+All WebRTC traffic shares the listener's port number over UDP, alongside the websocket signaling on TCP. So only one port needs to be reachable, in both protocols.
+
+Behind a 1:1 NAT (eg a docker bridge network, or a cloud VM without its public IP on an interface) set `ListenConfig.PublicIP` so clients are told the address they can actually reach. For example with docker compose:
+```yaml
+ports:
+  - "2000:2000/tcp"
+  - "2000:2000/udp"
+```
+```go
+rtcnet.NewListener(":2000", rtcnet.ListenConfig{
+	TlsConfig: tlsConfig,
+	PublicIP: os.Getenv("PUBLIC_IP"),
+	IceLite: true, // Optional, the listener is directly reachable so it only needs to answer connectivity checks
+})
+```
+Note: Listener `IceServers` aren't needed in this setup. Their STUN lookups run on ephemeral ports, which aren't reachable when only the listen port is open. `IceLite` requires them to be empty.
+
 # Used By
 1. I'm currently using this for an online game I'm building for browser. [You can find it here](https://www.unit.dev/mmo)
 
