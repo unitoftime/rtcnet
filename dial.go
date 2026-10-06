@@ -26,7 +26,7 @@ func DialContext(dialCtx context.Context, address string, tlsConfig *tls.Config,
 
 	trace("Dial: Starting WebRTC negotiation")
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(newSettingEngine()))
-	h, err := newHandshake(api, wSock, iceServers)
+	h, err := newHandshake(api, wSock, iceServers, wSock.LocalAddr(), wSock.RemoteAddr())
 	if err != nil {
 		return nil, err
 	}

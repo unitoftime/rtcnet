@@ -123,6 +123,27 @@ func (l *Listener) Addr() net.Addr {
 	return l.addr
 }
 
+// The peer of an http request, which the server only tells us as text
+type requestAddr string
+func (a requestAddr) Network() string {
+	return "tcp"
+}
+func (a requestAddr) String() string {
+	return string(a)
+}
+
+// The wss fallback socket, with the addresses of the request that opened it
+type fallbackConn struct {
+	net.Conn
+	localAddr, remoteAddr net.Addr
+}
+func (c fallbackConn) LocalAddr() net.Addr {
+	return c.localAddr
+}
+func (c fallbackConn) RemoteAddr() net.Addr {
+	return c.remoteAddr
+}
+
 // Every connection runs its full setup inside its own request handler. Failures only affect that connection, so they are logged rather than returned from Accept
 func (l *Listener) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
@@ -143,12 +164,16 @@ func (l *Listener) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Note: A websocket's net.Conn only reports placeholder addresses, so we carry the ones from its http request
+	remote := requestAddr(r.RemoteAddr)
+
 	var conn net.Conn
 	if r.URL.Path == "/wss" {
 		logger.Warn().Msg("Dialer requested wss fallback socket!")
-		conn = websocket.NetConn(context.Background(), wsConn, websocket.MessageBinary) // Note: This has to be background because the fallback socket outlives the request
+		wsock := websocket.NetConn(context.Background(), wsConn, websocket.MessageBinary) // Note: This has to be background because the fallback socket outlives the request
+		conn = fallbackConn{wsock, l.addr, remote}
 	} else {
-		conn, err = l.negotiate(wsConn)
+		conn, err = l.negotiate(wsConn, remote)
 		if err != nil {
 			logger.Warn().
 				Err(err).
@@ -165,7 +190,7 @@ func (l *Listener) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (l *Listener) negotiate(wsConn *websocket.Conn) (*Conn, error) {
+func (l *Listener) negotiate(wsConn *websocket.Conn, remote net.Addr) (*Conn, error) {
 	defer trace("finished negotiate")
 
 	ctx, cancel := context.WithTimeout(l.ctx, handshakeTimeout)
@@ -174,7 +199,7 @@ func (l *Listener) negotiate(wsConn *websocket.Conn) (*Conn, error) {
 	wSock := websocket.NetConn(ctx, wsConn, websocket.MessageBinary)
 	defer wSock.Close()
 
-	h, err := newHandshake(l.api, wSock, l.iceServers)
+	h, err := newHandshake(l.api, wSock, l.iceServers, l.addr, remote)
 	if err != nil {
 		return nil, err
 	}

@@ -28,7 +28,8 @@ type handshake struct {
 	errc  chan error    // Holds the first failure, later ones are dropped
 }
 
-func newHandshake(api *webrtc.API, ws net.Conn, iceServers []string) (*handshake, error) {
+// Note: The addresses are what the connection reports. The signaling websocket's own are only placeholders
+func newHandshake(api *webrtc.API, ws net.Conn, iceServers []string, localAddr, remoteAddr net.Addr) (*handshake, error) {
 	config := webrtc.Configuration{}
 	if len(iceServers) > 0 {
 		config.ICEServers = []webrtc.ICEServer{{URLs: iceServers}}
@@ -42,7 +43,7 @@ func newHandshake(api *webrtc.API, ws net.Conn, iceServers []string) (*handshake
 	h := &handshake{
 		ws:    ws,
 		pc:    pc,
-		conn:  newConn(pc, ws.LocalAddr(), ws.RemoteAddr()),
+		conn:  newConn(pc, localAddr, remoteAddr),
 		ready: make(chan struct{}),
 		errc:  make(chan error, 1),
 	}
